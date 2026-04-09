@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The 7% Trap: Urban Heat Islands in Hong Kong</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* ══════════════════════════════════════════
+       RESET & BASE
+    ══════════════════════════════════════════ */
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+      background:#0a0a14;
+      color:#d0d0dc;
+      line-height:1.6;
+      overflow-x:hidden;
+    }
+    ::-webkit-scrollbar { width:8px; }
+    ::-webkit-scrollbar-track { background:#0a0a14; }
+    ::-webkit-scrollbar-thumb { background:#333; border-radius:4px; }
+
+    /* ══════════════════════════════════════════
+       NAV
+    ══════════════════════════════════════════ */
+    .nav {
+      position:fixed; top:0; left:0; right:0; z-index:9999;
+      background:rgba(10,10,20,0.92);
+      backdrop-filter:blur(16px);
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 24px; height:56px;
+    }
+    .nav-brand {
+      font-weight:800; font-size:15px; color:#f5a623;
+      letter-spacing:0.5px;
+    }
+    .nav-links { display:flex; gap:6px; flex-wrap:wrap; }
+    .nav-links a {
+      color:#888; text-decoration:none; font-size:12px; font-weight:600;
+      padding:6px 12px; border-radius:8px; transition:all 0.2s;
+      white-space:nowrap;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color:#fff; background:rgba(245,166,35,0.15);
+    }
+    @media(max-width:768px) {
+      .nav { padding:0 12px; }
+      .nav-links a { font-size:10px; padding:4px 8px; }
+    }
+
+    /* ══════════════════════════════════════════
+       HERO
+    ══════════════════════════════════════════ */
+    .hero {
+      min-height:100vh; display:flex; flex-direction:column;
+      justify-content:center; align-items:center; text-align:center;
+      padding:80px 24px 60px;
+      background:
+        radial-gradient(ellipse at 30% 50%, rgba(245,166,35,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 70% 30%, rgba(217,48,37,0.06) 0%, transparent 50%),
+        #0a0a14;
+    }
+    .hero-badge {
+      display:inline-block; background:rgba(245,166,35,0.12); color:#f5a623;
+      font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase;
+      padding:6px 18px; border-radius:20px; margin-bottom:24px;
+    }
+    .hero h1 {
+      font-size:clamp(32px,6vw,56px); font-weight:900; color:#fff;
+      line-height:1.1; margin-bottom:12px;
+    }
+    .hero h1 .accent { color:#f5a623; }
+    .hero h2 {
+      font-size:clamp(18px,3vw,24px); font-weight:300; color:#8a8a9a;
+      margin-bottom:32px;
+    }
+    .hero-desc {
+      max-width:600px; font-size:15px; color:#7a7a8e; line-height:1.7;
+      margin-bottom:40px;
+    }
+    .hero-stats {
+      display:flex; gap:48px; margin-bottom:40px; flex-wrap:wrap;
+      justify-content:center;
+    }
+    .hero-stat .big {
+      font-size:clamp(40px,8vw,64px); font-weight:900;
+      background:linear-gradient(135deg,#f5a623,#d93025);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      line-height:1;
+    }
+    .hero-stat .label { font-size:13px; color:#7a7a8e; margin-top:4px; }
+    .hero-cta {
+      display:inline-block; background:linear-gradient(135deg,#f5a623,#e88a1a);
+      color:#000; font-weight:700; font-size:14px; padding:14px 32px;
+      border-radius:30px; text-decoration:none; transition:transform 0.2s,box-shadow 0.2s;
+    }
+    .hero-cta:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(245,166,35,0.3); }
+
+    /* ══════════════════════════════════════════
+       SHARED SECTION
+    ══════════════════════════════════════════ */
+    .section {
+      max-width:1000px; margin:0 auto;
+      padding:80px 24px 40px;
+    }
+    .section-num {
+      font-size:12px; font-weight:800; color:#f5a623;
+      letter-spacing:3px; text-transform:uppercase; margin-bottom:8px;
+    }
+    .section-title {
+      font-size:clamp(24px,4vw,36px); font-weight:800; color:#fff;
+      margin-bottom:8px;
+    }
+    .section-sub {
+      font-size:15px; color:#7a7a8e; max-width:700px; margin-bottom:32px;
+      line-height:1.6;
+    }
+
+    /* ══════════════════════════════════════════
+       KPI CARDS
+    ══════════════════════════════════════════ */
+    .kpi-grid {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+      gap:16px; max-width:1000px; margin:0 auto; padding:0 24px 40px;
+    }
+    .kpi-card {
+      background:linear-gradient(135deg,#12121e,#181830);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:16px; padding:24px; text-align:center;
+    }
+    .kpi-card .kpi-icon { font-size:28px; margin-bottom:8px; }
+    .kpi-card .kpi-value {
+      font-size:32px; font-weight:900; color:#fff; line-height:1;
+    }
+    .kpi-card .kpi-label {
+      font-size:12px; color:#7a7a8e; margin-top:6px; font-weight:600;
+      text-transform:uppercase; letter-spacing:0.5px;
+    }
+    .kpi-card .kpi-detail { font-size:11px; color:#555; margin-top:4px; }
+
+    /* ══════════════════════════════════════════
+       STORY SECTION
+    ══════════════════════════════════════════ */
+    .story {
+      max-width:760px; margin:0 auto; padding:60px 24px;
+    }
+    .story h2 {
+      font-size:28px; font-weight:800; color:#fff; margin-bottom:20px;
+    }
+    .story p {
+      font-size:15px; color:#8a8a9a; line-height:1.8; margin-bottom:16px;
+    }
+    .story .hl { color:#f5a623; font-weight:700; }
+    .story .wh { color:#fff; font-weight:600; }
+
+    /* ══════════════════════════════════════════
+       DATA TABLE
+    ══════════════════════════════════════════ */
+    .table-wrap {
+      overflow-x:auto; border-radius:14px;
+      border:1px solid rgba(255,255,255,0.06);
+      background:#111120; margin-bottom:32px;
+    }
+    .data-table {
+      width:100%; border-collapse:collapse; font-size:13px;
+      min-width:700px;
+    }
+    .data-table th {
+      background:#181830; color:#f5a623; font-weight:700; font-size:11px;
+      text-transform:uppercase; letter-spacing:0.8px; padding:14px 12px;
+      text-align:left; cursor:pointer; user-select:none; white-space:nowrap;
+      border-bottom:2px solid rgba(245,166,35,0.2); position:relative;
+    }
+    .data-table th:hover { color:#fff; }
+    .data-table th .sort-icon { margin-left:4px; font-size:10px; opacity:0.4; }
+    .data-table td {
+      padding:12px; border-bottom:1px solid rgba(255,255,255,0.04);
+      color:#c0c0cc;
+    }
+    .data-table tr:hover td { background:rgba(245,166,35,0.04); }
+    .data-table .num { text-align:right; font-variant-numeric:tabular-nums; }
+    .density-badge {
+      display:inline-block; padding:2px 10px; border-radius:10px;
+      font-size:10px; font-weight:700;
+    }
+    .density-high { background:rgba(217,48,37,0.15); color:#ef5350; }
+    .density-med  { background:rgba(245,166,35,0.15); color:#f5a623; }
+    .density-low  { background:rgba(30,142,62,0.15);  color:#66bb6a; }
+    .row-count {
+      font-size:12px; color:#555; margin-bottom:10px;
+    }
+
+    /* ══════════════════════════════════════════
+       CHART CONTAINERS
+    ══════════════════════════════════════════ */
+    .chart-grid {
+      display:grid; grid-template-columns:1fr 1fr; gap:20px;
+      margin-bottom:32px;
+    }
+    @media(max-width:700px) { .chart-grid { grid-template-columns:1fr; } }
+    .chart-card {
+      background:linear-gradient(135deg,#111120,#161630);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:14px; padding:20px;
+    }
+    .chart-card h3 {
+      font-size:13px; font-weight:700; color:#ccc; margin-bottom:14px;
+    }
+    .chart-card canvas { width:100%!important; max-height:320px; }
+    .chart-card-full {
+      background:linear-gradient(135deg,#111120,#161630);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:14px; padding:20px; margin-bottom:20px;
+    }
+    .chart-card-full h3 {
+      font-size:13px; font-weight:700; color:#ccc; margin-bottom:14px;
+    }
+
+    /* ══════════════════════════════════════════
+       INFO BOXES / FINDING BOXES
+    ══════════════════════════════════════════ */
+    .findings-box {
+      background:linear-gradient(135deg,#111120,#161630);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:14px; padding:24px; margin-bottom:20px;
+    }
+    .findings-box h3 {
+      font-size:14px; font-weight:700; color:#f5a623; margin-bottom:12px;
+    }
+    .findings-box p {
+      font-size:13px; color:#8a8a9a; line-height:1.6; margin-bottom:8px;
+    }
+    .findings-box .hl { color:#fff; font-weight:600; }
+    .case-study {
+      background:linear-gradient(135deg, rgba(245,166,35,0.08), rgba(217,48,37,0.05));
+      border:1px solid rgba(245,166,35,0.2);
+      border-radius:14px; padding:24px; margin:24px 0;
+    }
+    .case-study h4 {
+      font-size:14px; font-weight:700; color:#f5a623; margin-bottom:8px;
+    }
+    .case-study p {
+      font-size:13px; color:#aaa; line-height:1.6; margin-bottom:6px;
+    }
+    .case-study .hl { color:#fff; font-weight:600; }
+
+    /* ══════════════════════════════════════════
+       DELTA EXPLANATION BOXES
+    ══════════════════════════════════════════ */
+    .delta-grid {
+      display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px;
+    }
+    @media(max-width:600px) { .delta-grid { grid-template-columns:1fr; } }
+    .delta-card {
+      background:linear-gradient(135deg,#111120,#161630);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:12px; padding:18px;
+    }
+    .delta-card h4 { font-size:13px; font-weight:700; color:#f5a623; margin-bottom:6px; }
+    .delta-card p { font-size:12px; color:#7a7a8e; line-height:1.5; }
+    .delta-card .hl { color:#fff; font-weight:600; }
+
+    /* ══════════════════════════════════════════
+       ALERT BOXES
+    ══════════════════════════════════════════ */
+    .alert-grid {
+      display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:20px;
+    }
+    @media(max-width:600px) { .alert-grid { grid-template-columns:1fr; } }
+    .alert-card {
+      background:linear-gradient(135deg,#111120,#161630);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:12px; padding:18px;
+    }
+    .alert-card .alert-icon { font-size:20px; margin-bottom:6px; }
+    .alert-card h4 { font-size:13px; font-weight:700; color:#f5a623; margin-bottom:6px; }
+    .alert-card p { font-size:12px; color:#7a7a8e; line-height:1.5; }
+
+    /* ══════════════════════════════════════════
+       MAP SECTION (LEAFLET)
+    ══════════════════════════════════════════ */
+    .map-wrapper {
+      position:relative; margin:0 0 24px;
+      border-radius:16px; overflow:hidden;
+      box-shadow:0 8px 32px rgba(0,0,0,0.4);
+      border:1px solid rgba(255,255,255,0.08);
+    }
+    .map-box { width:100%; height:440px; }
+    .map-toggle {
+      position:absolute; top:12px; left:12px; z-index:1000;
+      background:#fff; border-radius:8px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.3);
+      overflow:hidden; display:flex;
+    }
+    .map-toggle button {
+      border:none; background:#fff; color:#333;
+      padding:8px 16px; font-size:12px; font-weight:600;
+      cursor:pointer; transition:all 0.2s; font-family:inherit;
+    }
+    .map-toggle button.active { background:#1a73e8; color:#fff; }
+    .map-toggle button:hover:not(.active) { background:#f1f3f4; }
+    .map-legend {
+      position:absolute; bottom:12px; left:12px; z-index:1000;
+      background:#fff; border-radius:10px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.3);
+      padding:12px 16px; font-size:12px; color:#333; max-width:180px;
+    }
+    .map-legend h4 {
+      margin-bottom:8px; font-size:12px; font-weight:700; color:#202124;
+    }
+    .legend-item { display:flex; align-items:center; margin:5px 0; }
+    .legend-dot {
+      width:12px; height:12px; border-radius:50%; margin-right:8px; flex-shrink:0;
+    }
+    .legend-item span { font-size:11px; color:#5f6368; }
+    .legend-size {
+      display:flex; align-items:center; margin-top:10px;
+      padding-top:10px; border-top:1px solid #e0e0e0; gap:6px;
+    }
+    .legend-size .sm { width:8px; height:8px; border-radius:50%; background:#aaa; }
+    .legend-size .lg { width:20px; height:20px; border-radius:50%; background:#aaa; }
+    .legend-size .arrow { font-size:10px; color:#999; }
+    .legend-size .sz-label { font-size:10px; color:#666; }
+
+    /* Leaflet overrides */
+    .leaflet-popup-content-wrapper {
+      border-radius:12px!important;
+      box-shadow:0 4px 20px rgba(0,0,0,0.3)!important;
+      padding:0!important; overflow:hidden;
+    }
+    .leaflet-popup-content { margin:0!important; min-width:220px; }
+    .leaflet-popup-tip { box-shadow:0 4px 10px rgba(0,0,0,0.2)!important; }
+    .leaflet-control-zoom {
+      border:none!important; border-radius:8px!important;
+      box-shadow:0 2px 6px rgba(0,0,0,0.3)!important; overflow:hidden;
+    }
+    .leaflet-control-zoom a {
+      width:36px!important; height:36px!important; line-height:36px!important;
+      font-size:18px!important; color:#333!important;
+      border-bottom:1px solid #e0e0e0!important;
+    }
+    .leaflet-control-zoom a:hover { background:#f1f3f4!important; }
+    .popup-card { padding:16px 18px; }
+    .popup-card h3 {
+      font-size:15px; font-weight:700; color:#202124;
+      margin-bottom:10px; font-family:'Inter',sans-serif;
+    }
+    .popup-card .stat-row {
+      display:flex; justify-content:space-between; padding:5px 0;
+      font-size:13px; color:#5f6368; border-bottom:1px solid #f0f0f0;
+      font-family:'Inter',sans-serif;
+    }
+    .popup-card .stat-row:last-of-type { border-bottom:none; }
+    .popup-card .val { font-weight:700; color:#202124; }
+    .popup-card .badge {
+      display:inline-block; padding:3px 12px; border-radius:12px;
+      font-size:11px; font-weight:700; margin-top:10px;
+    }
+    .badge-high { background:#fce8e6; color:#d93025; }
+    .badge-med  { background:#fef7e0; color:#e37400; }
+    .badge-low  { background:#e6f4ea; color:#1e8e3e; }
+    .badge-pop-high { background:#fce8e6; color:#d93025; }
+    .badge-pop-med  { background:#fef7e0; color:#e37400; }
+    .badge-pop-low  { background:#e8f0fe; color:#1a73e8; }
+
+    /* Map reveal cards */
+    .reveal-grid {
+      display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:24px;
+    }
+    @media(max-width:700px) { .reveal-grid { grid-template-columns:1fr; } }
+    .reveal-card {
+      background:linear-gradient(135deg,#111120,#161630);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:12px; padding:18px;
+    }
+    .reveal-card h4 { font-size:13px; font-weight:700; color:#f5a623; margin-bottom:6px; }
+    .reveal-card p { font-size:12px; color:#7a7a8e; line-height:1.5; }
+
+    /* ══════════════════════════════════════════
+       INSIGHTS SECTION
+    ══════════════════════════════════════════ */
+    .insight-num {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:28px; height:28px; border-radius:50%; background:rgba(245,166,35,0.15);
+      color:#f5a623; font-size:14px; font-weight:800; margin-bottom:10px;
+    }
+    .insight-card {
+      background:linear-gradient(135deg,#111120,#161630);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:14px; padding:24px; margin-bottom:16px;
+    }
+    .insight-card h3 {
+      font-size:15px; font-weight:700; color:#fff; margin-bottom:8px;
+    }
+    .insight-card p {
+      font-size:13px; color:#8a8a9a; line-height:1.6; margin-bottom:6px;
+    }
+    .insight-card .evidence {
+      font-size:12px; color:#666; border-left:3px solid #f5a623;
+      padding-left:12px; margin-top:10px;
+    }
+
+    /* Recommendation grid */
+    .rec-grid {
+      display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:24px;
+    }
+    @media(max-width:600px) { .rec-grid { grid-template-columns:1fr; } }
+    .rec-card {
+      background:linear-gradient(135deg,#111120,#161630);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:12px; padding:20px; text-align:center;
+    }
+    .rec-card .rec-icon { font-size:28px; margin-bottom:8px; }
+    .rec-card h4 { font-size:13px; font-weight:700; color:#f5a623; margin-bottom:6px; }
+    .rec-card p { font-size:12px; color:#7a7a8e; line-height:1.5; }
+
+    /* ══════════════════════════════════════════
+       DATA SOURCES
+    ══════════════════════════════════════════ */
+    .sources-grid {
+      display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:24px;
+    }
+    @media(max-width:600px) { .sources-grid { grid-template-columns:1fr; } }
+    .source-card {
+      background:linear-gradient(135deg,#111120,#161630);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:12px; padding:18px; text-align:center;
+    }
+    .source-card .s-icon { font-size:24px; margin-bottom:6px; }
+    .source-card h4 { font-size:12px; font-weight:700; color:#fff; margin-bottom:4px; }
+    .source-card p { font-size:11px; color:#666; }
+    .methodology p {
+      font-size:12px; color:#666; line-height:1.6; margin-bottom:6px;
+    }
+    .methodology strong { color:#aaa; }
+
+    /* ══════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════ */
+    .footer {
+      text-align:center; padding:40px 24px; font-size:11px; color:#444;
+      border-top:1px solid rgba(255,255,255,0.04); margin-top:40px;
+    }
+    .footer strong { color:#888; }
+    .footer .copy { color:#f5a623; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     NAV
+══════════════════════════════════════════════════════════════ -->
+<nav class="nav">
+  <div class="nav-brand">🌡️ HK Heat Study</div>
+  <div class="nav-links">
+    <a href="#story">The Story</a>
+    <a href="#data">Data Table</a>
+    <a href="#intensity">Heat Intensity</a>
+    <a href="#delta">Urban Heat Delta</a>
+    <a href="#population">Population Risk</a>
+    <a href="#heatmap">Heat Map</a>
+    <a href="#insights">Insights</a>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════════
+     HERO
+══════════════════════════════════════════════════════════════ -->
+<section class="hero" id="top">
+  <div class="hero-badge">HK Heat Study</div>
+  <h1>The <span class="accent">7% Trap</span></h1>
+  <h2>Concrete, Crowds, and Hong Kong's Urban Heat Islands</h2>
+  <p class="hero-desc">While 65% of Hong Kong is green space, 7.5 million people are squeezed into just 7% of the land—creating dangerous heat traps.</p>
+  <div class="hero-stats">
+    <div class="hero-stat"><div class="big">65%</div><div class="label">of Hong Kong is green space</div></div>
+    <div class="hero-stat"><div class="big">7%</div><div class="label">holds 7.5 million people</div></div>
+  </div>
+  <a href="#data" class="hero-cta">Explore the Data ↓</a>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     KPIs
+══════════════════════════════════════════════════════════════ -->
+<div class="section" style="padding-bottom:0">
+  <div class="section-num">Key Performance Indicators</div>
+</div>
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-icon">🌡️</div>
+    <div class="kpi-value">38°C</div>
+    <div class="kpi-label">Maximum Recorded Temperature</div>
+    <div class="kpi-detail">Yuen Long District</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">🏙️</div>
+    <div class="kpi-value">+2.5°C</div>
+    <div class="kpi-label">Urban Heat Premium</div>
+    <div class="kpi-detail">vs Rural Areas</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">👥</div>
+    <div class="kpi-value">2.1M</div>
+    <div class="kpi-label">High-Risk Population</div>
+    <div class="kpi-detail">Living in Heat Zones</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">🏗️</div>
+    <div class="kpi-value">93%</div>
+    <div class="kpi-label">Concrete Coverage</div>
+    <div class="kpi-detail">In Residential Zones</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     STORY
+══════════════════════════════════════════════════════════════ -->
+<section class="story" id="story">
+  <h2>The Paradox of a "Green City"</h2>
+  <p>Hong Kong proudly claims that <span class="hl">65% of its land</span> is covered by woodland and shrubland. Yet its citizens are among the most heat-stressed in Asia.</p>
+  <p><strong style="color:#fff">How can a "green city" be so hot?</strong></p>
+  <p>The answer lies in a cruel irony of urban planning: while the mountains and country parks remain pristine and cool, <span class="wh">7.5 million people</span> are squeezed into just <span class="wh">7% of the land</span>—creating concrete canyons that trap heat long after the sun sets.</p>
+  <p>Using real-time data from the Hong Kong Observatory, population census records, and land utilization surveys, we've uncovered the hidden geography of Hong Kong's <span class="hl">Urban Heat Islands</span>.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     DATA TABLE
+══════════════════════════════════════════════════════════════ -->
+<section class="section" id="data">
+  <div class="section-num">Data Overview</div>
+  <div class="section-title">District Summary Table</div>
+  <div class="section-sub">All 18 districts with intensity score, urban heat delta, relative heat stress, population, and high-risk population count. Click any column header to sort.</div>
+  <div class="row-count">18 rows</div>
+  <div class="table-wrap">
+    <table class="data-table" id="districtTable">
+      <thead>
+        <tr>
+          <th onclick="sortTable(0)">District <span class="sort-icon">▲▼</span></th>
+          <th onclick="sortTable(1)">Intensity Score <span class="sort-icon">▲▼</span></th>
+          <th onclick="sortTable(2)">Urban Heat Delta <span class="sort-icon">▲▼</span></th>
+          <th onclick="sortTable(3)">Relative Heat Stress <span class="sort-icon">▲▼</span></th>
+          <th onclick="sortTable(4)">Population <span class="sort-icon">▲▼</span></th>
+          <th onclick="sortTable(5)">High-Risk Pop <span class="sort-icon">▲▼</span></th>
+          <th onclick="sortTable(6)">Density Category <span class="sort-icon">▲▼</span></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     01 - HEAT INTENSITY
+══════════════════════════════════════════════════════════════ -->
+<section class="section" id="intensity">
+  <div class="section-num">01</div>
+  <div class="section-title">Heat Intensity by District</div>
+  <div class="section-sub">The Intensity Score reveals which districts bear the highest temperature burden—and how extreme conditions can become.</div>
+
+  <div class="findings-box">
+    <h3>📊 Key Findings</h3>
+    <p><span class="hl">Hottest Districts:</span> Yuen Long and Southern/Yau Tsim Mong record the highest intensity scores, with temperatures reaching <span class="hl">37–38°C</span></p>
+    <p><span class="hl">Coolest Districts:</span> North District and Tuen Mun show the lowest scores, typically staying at <span class="hl">33–34°C</span></p>
+    <p style="margin-top:12px;color:#666;font-size:12px"><strong>What does Intensity Score mean?</strong> The Intensity Score measures the maximum heat burden experienced by residents in each district. A higher score indicates that people in that area are exposed to more extreme temperatures during peak heat hours.</p>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card"><h3>Sum of Intensity Score by District</h3><canvas id="intensityChart"></canvas></div>
+    <div class="chart-card"><h3>Sum of Relative Heat Stress by District</h3><canvas id="stressChart"></canvas></div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     02 - URBAN HEAT DELTA
+══════════════════════════════════════════════════════════════ -->
+<section class="section" id="delta">
+  <div class="section-num">02</div>
+  <div class="section-title">Urban Heat Delta</div>
+  <div class="section-sub">The difference between day and night temperatures reveals the true "heat trap" effect of concrete jungles.</div>
+
+  <div class="delta-grid">
+    <div class="delta-card">
+      <h4>🌡️ High Delta</h4>
+      <p>More concrete → Smaller day/night difference → <span class="hl">Stronger heat island effect</span></p>
+    </div>
+    <div class="delta-card">
+      <h4>🌿 Low Delta</h4>
+      <p>More greenery → Larger day/night difference → <span class="hl">Natural cooling at night</span></p>
+    </div>
+  </div>
+
+  <div class="findings-box">
+    <h3>Key Delta Findings</h3>
+    <p><span class="hl">Highest Urban Heat Effect:</span> Sai Kung and Tsuen Wan show the highest delta values—nights stay almost as hot as days.</p>
+    <p><span class="hl">Best Natural Cooling:</span> North District and Yuen Long (Delta: −2.00) show the largest temperature drops at night.</p>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card"><h3>Sum of Urban Heat Delta by District</h3><canvas id="deltaChart"></canvas></div>
+    <div class="chart-card"><h3>Sum of High-Risk Pop by Urban Heat Delta</h3><canvas id="deltaPopChart"></canvas></div>
+  </div>
+
+  <div class="case-study">
+    <h4>🔍 Case Study: Yuen Long Paradox</h4>
+    <p>Yuen Long presents a fascinating paradox: it has the <span class="hl">lowest Urban Heat Delta (−2.00)</span>, meaning large day-night temperature swings. Yet its daytime <span class="hl">Intensity Score reaches 37–38°C</span>—among the highest in Hong Kong.</p>
+    <p><strong style="color:#f5a623">Conclusion:</strong> While Yuen Long cools down significantly at night, its residents still suffer extreme heat during the day. This suggests that <span class="hl">nighttime relief doesn't offset daytime heat stress</span>.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     03 - POPULATION RISK
+══════════════════════════════════════════════════════════════ -->
+<section class="section" id="population">
+  <div class="section-num">03</div>
+  <div class="section-title">Population at Risk</div>
+  <div class="section-sub">Heat becomes deadly when combined with density. Who is most vulnerable?</div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3>High-Risk Population Distribution</h3>
+      <p style="font-size:11px;color:#666;margin-bottom:12px">Bar chart: high-risk populations distributed across density levels.</p>
+      <canvas id="popBarChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>Population Density Composition</h3>
+      <p style="font-size:11px;color:#666;margin-bottom:12px">Donut chart: proportion at different density levels.</p>
+      <canvas id="popDonutChart"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-card-full">
+    <h3>Sum of High-Risk Population Count by District</h3>
+    <canvas id="popDistrictChart" style="max-height:350px"></canvas>
+  </div>
+
+  <div class="alert-grid">
+    <div class="alert-card">
+      <div class="alert-icon">⚠️</div>
+      <h4>Yuen Long Alert</h4>
+      <p>If Yuen Long experiences a sudden population surge (events, holidays), the district's temperature could spike dramatically due to the combined effect of body heat and reduced air circulation.</p>
+    </div>
+    <div class="alert-card">
+      <div class="alert-icon">📈</div>
+      <h4>Density ≠ Heat (Always)</h4>
+      <p>Low population density doesn't guarantee lower temperatures. Urban design, building materials, and green coverage play equally important roles in determining local climate.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     04 - HEAT STRESS MAP (LEAFLET)
+══════════════════════════════════════════════════════════════ -->
+<section class="section" id="heatmap">
+  <div class="section-num">04</div>
+  <div class="section-title">Heat Stress Map</div>
+  <div class="section-sub">Visualizing relative heat stress and population concentration across Hong Kong's 18 districts.</div>
+
+  <!-- MAP 1: Relative Heat Stress -->
+  <h3 style="color:#f5a623;font-size:14px;font-weight:700;margin-bottom:12px">Relative Heat Stress (Circle Markers)</h3>
+  <div class="map-wrapper">
+    <div id="heatMap" class="map-box"></div>
+    <div class="map-toggle">
+      <button class="active" onclick="switchTile('heatMap','default',this)">地圖</button>
+      <button onclick="switchTile('heatMap','satellite',this)">衛星</button>
+    </div>
+    <div class="map-legend">
+      <h4>Heat Stress Level</h4>
+      <div class="legend-item"><div class="legend-dot" style="background:#1e8e3e"></div><span>Low Stress</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#e37400"></div><span>Medium</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#d93025"></div><span>High Stress</span></div>
+      <div class="legend-size">
+        <div class="sm"></div><span class="arrow">→</span><div class="lg"></div>
+        <span class="sz-label">Higher stress</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP 2: High-Risk Population -->
+  <h3 style="color:#f5a623;font-size:14px;font-weight:700;margin-bottom:12px">High-Risk Population Count (Circle Markers)</h3>
+  <div class="map-wrapper">
+    <div id="popMap" class="map-box"></div>
+    <div class="map-toggle">
+      <button class="active" onclick="switchTile('popMap','default',this)">地圖</button>
+      <button onclick="switchTile('popMap','satellite',this)">衛星</button>
+    </div>
+    <div class="map-legend">
+      <h4>At-Risk Population</h4>
+      <div class="legend-item"><div class="legend-dot" style="background:#4285f4"></div><span>Low Pop</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#e37400"></div><span>Medium</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#d93025"></div><span>High Pop</span></div>
+      <div class="legend-size">
+        <div class="sm"></div><span class="arrow">→</span><div class="lg"></div>
+        <span class="sz-label">More at-risk</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- What the Map Reveals -->
+  <h3 style="color:#fff;font-size:16px;font-weight:700;margin-top:8px;margin-bottom:16px">What the Map Reveals</h3>
+  <div class="reveal-grid">
+    <div class="reveal-card">
+      <h4>🏙️ Kowloon Districts</h4>
+      <p>The urban core shows consistently high heat stress with large population bubbles—the epicenter of Hong Kong's heat island effect.</p>
+    </div>
+    <div class="reveal-card">
+      <h4>🏘️ New Territories</h4>
+      <p>Mixed results: some new towns (Sha Tin, Tuen Mun) show moderate stress despite lower density, suggesting building design matters.</p>
+    </div>
+    <div class="reveal-card">
+      <h4>🏝️ Hong Kong Island</h4>
+      <p>Southern District shows lower stress despite proximity to urban areas—likely due to sea breezes and more green coverage.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     05 - INSIGHTS
+══════════════════════════════════════════════════════════════ -->
+<section class="section" id="insights">
+  <div class="section-num">05</div>
+  <div class="section-title">Insights & Recommendations</div>
+
+  <div class="insight-card">
+    <div class="insight-num">1</div>
+    <h3>The Heat Island is a Planning Problem</h3>
+    <p>Our data reveals that Hong Kong's Urban Heat Island effect is not merely a weather phenomenon—it's a direct consequence of how we've distributed 7.5 million people across just 7% of available land.</p>
+    <div class="evidence"><strong>Evidence:</strong> Districts with highest concrete coverage (Yau Tsim Mong, Kwun Tong) consistently show the smallest day-night temperature differences.</div>
+  </div>
+
+  <div class="insight-card">
+    <div class="insight-num">2</div>
+    <h3>Nighttime Heat is the Hidden Killer</h3>
+    <p>While daytime temperatures grab headlines, our Urban Heat Delta analysis shows that <strong style="color:#f5a623">the inability to cool down at night</strong> may pose greater health risks, especially for the elderly.</p>
+    <div class="evidence"><strong>Evidence:</strong> Sai Kung and Tsuen Wan show the highest delta values—their nights remain nearly as hot as their days.</div>
+  </div>
+
+  <div class="insight-card">
+    <div class="insight-num">3</div>
+    <h3>Density Alone Doesn't Determine Heat</h3>
+    <p>Population density correlates with heat stress, but isn't the only factor. Urban design, ventilation corridors, and green coverage can mitigate effects even in dense areas.</p>
+  </div>
+
+  <div class="insight-card">
+    <div class="insight-num">4</div>
+    <h3>Vulnerable Populations Need Targeted Relief</h3>
+    <p>Over 2 million residents live in high-risk heat zones. These areas should be prioritized for cooling centers, green infrastructure, and heat warning systems.</p>
+  </div>
+
+  <h3 style="color:#fff;font-size:16px;font-weight:700;margin-top:32px;margin-bottom:16px">Recommendations for Future Development</h3>
+  <div class="rec-grid">
+    <div class="rec-card">
+      <div class="rec-icon">🌳</div>
+      <h4>Cooling Corridors</h4>
+      <p>Future developments must integrate airflow paths and green corridors to prevent heat accumulation.</p>
+    </div>
+    <div class="rec-card">
+      <div class="rec-icon">🏗️</div>
+      <h4>Building Materials</h4>
+      <p>Mandate heat-reflective surfaces and green roofs in new constructions, especially in stressed districts.</p>
+    </div>
+    <div class="rec-card">
+      <div class="rec-icon">📱</div>
+      <h4>Early Warning Systems</h4>
+      <p>Implement district-level heat alerts using real-time HKO data to protect vulnerable populations.</p>
+    </div>
+    <div class="rec-card">
+      <div class="rec-icon">🗺️</div>
+      <h4>Zoning Reform</h4>
+      <p>Reconsider development density caps in high-stress districts and incentivize decentralization to cooler areas.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     DATA SOURCES
+══════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="section-title">Data Sources & Methodology</div>
+  <div class="sources-grid" style="margin-top:20px">
+    <div class="source-card">
+      <div class="s-icon">🌡️</div>
+      <h4>Weather Data</h4>
+      <p>Hong Kong Observatory Live API<br>Real-time temperature readings per hour</p>
+    </div>
+    <div class="source-card">
+      <div class="s-icon">🗺️</div>
+      <h4>Land Utilization</h4>
+      <p>LUHK 2018 Survey (Planning Department)<br>Land classification by usage type</p>
+    </div>
+    <div class="source-card">
+      <div class="s-icon">👥</div>
+      <h4>Population Data</h4>
+      <p>Census and Statistics Department 2021<br>District-level population density</p>
+    </div>
+  </div>
+  <div class="methodology">
+    <p><strong>Intensity Score:</strong> Calculated from maximum hourly temperature readings across each district over the study period.</p>
+    <p><strong>Urban Heat Delta:</strong> Derived from the difference between average daytime (10:00–18:00) and nighttime (22:00–06:00) temperatures.</p>
+    <p><strong>High-Risk Population:</strong> Defined as residents in areas with both above-median temperature and above-median density.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     FOOTER
+══════════════════════════════════════════════════════════════ -->
+<div class="footer">
+  <strong>Hong Kong Urban Heat Island Study</strong><br>
+  A Data Story Project · Course: Data Analytics · Submission Date: April 2026<br>
+  Data sources: Hong Kong Observatory, Planning Department, Census and Statistics Department<br>
+  <span class="copy">© COMP3925</span>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════════════════════════════ -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DISTRICT DATA
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const districts = [
+  { name:"Central & Western", zh:"中西區", lat:22.2860, lng:114.1500, intensity:36.2, delta:0.8, stress:0.75, pop:243200, hiRisk:85000,  density:"High" },
+  { name:"Wan Chai",          zh:"灣仔",   lat:22.2780, lng:114.1750, intensity:36.5, delta:1.0, stress:0.85, pop:166700, hiRisk:62000,  density:"High" },
+  { name:"Eastern",           zh:"東區",   lat:22.2840, lng:114.2240, intensity:35.8, delta:0.5, stress:0.70, pop:529600, hiRisk:175000, density:"High" },
+  { name:"Southern",          zh:"南區",   lat:22.2470, lng:114.1600, intensity:37.0, delta:-0.5, stress:0.35, pop:269200, hiRisk:55000,  density:"Medium" },
+  { name:"Yau Tsim Mong",     zh:"油尖旺", lat:22.3120, lng:114.1700, intensity:37.0, delta:1.5, stress:0.95, pop:318100, hiRisk:145000, density:"High" },
+  { name:"Sham Shui Po",      zh:"深水埗", lat:22.3300, lng:114.1620, intensity:36.8, delta:1.3, stress:0.90, pop:405900, hiRisk:185000, density:"High" },
+  { name:"Kowloon City",      zh:"九龍城", lat:22.3280, lng:114.1920, intensity:36.3, delta:0.9, stress:0.80, pop:418700, hiRisk:155000, density:"High" },
+  { name:"Wong Tai Sin",      zh:"黃大仙", lat:22.3420, lng:114.2030, intensity:36.4, delta:1.1, stress:0.82, pop:426200, hiRisk:190000, density:"High" },
+  { name:"Kwun Tong",         zh:"觀塘",   lat:22.3120, lng:114.2260, intensity:36.7, delta:1.4, stress:0.88, pop:648500, hiRisk:280000, density:"High" },
+  { name:"Kwai Tsing",        zh:"葵青",   lat:22.3540, lng:114.1300, intensity:35.5, delta:0.6, stress:0.72, pop:507100, hiRisk:175000, density:"Medium" },
+  { name:"Tsuen Wan",         zh:"荃灣",   lat:22.3710, lng:114.1140, intensity:35.2, delta:1.8, stress:0.65, pop:303600, hiRisk:105000, density:"Medium" },
+  { name:"Tuen Mun",          zh:"屯門",   lat:22.3910, lng:113.9770, intensity:33.8, delta:-0.3, stress:0.55, pop:495900, hiRisk:125000, density:"Medium" },
+  { name:"Yuen Long",         zh:"元朗",   lat:22.4450, lng:114.0220, intensity:38.0, delta:-2.0, stress:0.50, pop:614200, hiRisk:140000, density:"Medium" },
+  { name:"North",             zh:"北區",   lat:22.4960, lng:114.1380, intensity:33.5, delta:-2.0, stress:0.40, pop:304500, hiRisk:70000,  density:"Low" },
+  { name:"Tai Po",            zh:"大埔",   lat:22.4510, lng:114.1710, intensity:34.2, delta:-1.2, stress:0.45, pop:303200, hiRisk:80000,  density:"Low" },
+  { name:"Sha Tin",           zh:"沙田",   lat:22.3820, lng:114.1950, intensity:35.0, delta:0.3, stress:0.60, pop:659800, hiRisk:165000, density:"Medium" },
+  { name:"Sai Kung",          zh:"西貢",   lat:22.3830, lng:114.2700, intensity:34.5, delta:2.0, stress:0.30, pop:476700, hiRisk:85000,  density:"Low" },
+  { name:"Islands",           zh:"離島",   lat:22.2610, lng:113.9460, intensity:33.0, delta:-1.5, stress:0.20, pop:186100, hiRisk:35000,  density:"Low" },
+];
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// POPULATE DATA TABLE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const tbody = document.getElementById('tableBody');
+
+function renderTable(data) {
+  tbody.innerHTML = '';
+  data.forEach(d => {
+    const dc = d.density === 'High' ? 'density-high' : d.density === 'Medium' ? 'density-med' : 'density-low';
+    tbody.innerHTML += `<tr>
+      <td>${d.zh} ${d.name}</td>
+      <td class="num">${d.intensity.toFixed(1)}</td>
+      <td class="num">${d.delta > 0 ? '+' : ''}${d.delta.toFixed(2)}</td>
+      <td class="num">${(d.stress * 100).toFixed(0)}%</td>
+      <td class="num">${d.pop.toLocaleString()}</td>
+      <td class="num">${d.hiRisk.toLocaleString()}</td>
+      <td><span class="density-badge ${dc}">${d.density}</span></td>
+    </tr>`;
+  });
+}
+renderTable(districts);
+
+let sortDir = {};
+function sortTable(col) {
+  const keys = ['name','intensity','delta','stress','pop','hiRisk','density'];
+  const key = keys[col];
+  sortDir[col] = !sortDir[col];
+  const dir = sortDir[col] ? 1 : -1;
+  const sorted = [...districts].sort((a, b) => {
+    if (typeof a[key] === 'string') return a[key].localeCompare(b[key]) * dir;
+    return (a[key] - b[key]) * dir;
+  });
+  renderTable(sorted);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CHART HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const labels = districts.map(d => d.zh);
+const chartOpts = (horizontal = false) => ({
+  indexAxis: horizontal ? 'y' : 'x',
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+    y: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+  }
+});
+
+function barColors(values, thresholds, colors) {
+  return values.map(v => v >= thresholds[0] ? colors[0] : v >= thresholds[1] ? colors[1] : colors[2]);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 01 - INTENSITY CHARTS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const intensityVals = districts.map(d => d.intensity);
+new Chart(document.getElementById('intensityChart'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{
+      data: intensityVals,
+      backgroundColor: barColors(intensityVals, [36, 35], ['#d93025', '#e37400', '#1e8e3e']),
+      borderRadius: 4
+    }]
+  },
+  options: { ...chartOpts(), plugins: { legend: { display: false } } }
+});
+
+const stressVals = districts.map(d => d.stress * 100);
+new Chart(document.getElementById('stressChart'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{
+      data: stressVals,
+      backgroundColor: barColors(stressVals, [70, 40], ['#d93025', '#e37400', '#1e8e3e']),
+      borderRadius: 4
+    }]
+  },
+  options: chartOpts()
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 02 - DELTA CHARTS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const deltaVals = districts.map(d => d.delta);
+new Chart(document.getElementById('deltaChart'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{
+      data: deltaVals,
+      backgroundColor: deltaVals.map(v => v > 0 ? '#d93025' : '#4285f4'),
+      borderRadius: 4
+    }]
+  },
+  options: chartOpts()
+});
+
+// Delta vs High-Risk Pop scatter-like bar
+const sorted = [...districts].sort((a, b) => a.delta - b.delta);
+new Chart(document.getElementById('deltaPopChart'), {
+  type: 'bar',
+  data: {
+    labels: sorted.map(d => d.zh),
+    datasets: [{
+      data: sorted.map(d => d.hiRisk),
+      backgroundColor: sorted.map(d => d.delta >= 1 ? '#d93025' : d.delta >= 0 ? '#e37400' : '#4285f4'),
+      borderRadius: 4
+    }]
+  },
+  options: chartOpts()
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 03 - POPULATION CHARTS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const densityCats = ['High', 'Medium', 'Low'];
+const densityPop = densityCats.map(cat =>
+  districts.filter(d => d.density === cat).reduce((s, d) => s + d.hiRisk, 0)
+);
+
+new Chart(document.getElementById('popBarChart'), {
+  type: 'bar',
+  data: {
+    labels: ['High Density', 'Medium Density', 'Low Density'],
+    datasets: [{
+      data: densityPop,
+      backgroundColor: ['#d93025', '#e37400', '#4285f4'],
+      borderRadius: 6
+    }]
+  },
+  options: chartOpts()
+});
+
+const densityTotal = densityCats.map(cat =>
+  districts.filter(d => d.density === cat).reduce((s, d) => s + d.pop, 0)
+);
+new Chart(document.getElementById('popDonutChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['High Density', 'Medium Density', 'Low Density'],
+    datasets: [{
+      data: densityTotal,
+      backgroundColor: ['#d93025', '#e37400', '#4285f4'],
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '55%',
+    plugins: {
+      legend: { position: 'bottom', labels: { color: '#888', font: { size: 11 } } }
+    }
+  }
+});
+
+const hiRiskVals = districts.map(d => d.hiRisk);
+new Chart(document.getElementById('popDistrictChart'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{
+      data: hiRiskVals,
+      backgroundColor: barColors(hiRiskVals, [150000, 80000], ['#d93025', '#e37400', '#4285f4']),
+      borderRadius: 4
+    }]
+  },
+  options: chartOpts()
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 04 - LEAFLET MAPS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function heatColor(v)  { return v >= 0.7 ? '#d93025' : v >= 0.4 ? '#e37400' : '#1e8e3e'; }
+function heatLabel(v)  { return v >= 0.7 ? 'High'    : v >= 0.4 ? 'Medium'  : 'Low'; }
+function heatBadge(v)  { return v >= 0.7 ? 'badge-high' : v >= 0.4 ? 'badge-med' : 'badge-low'; }
+function popColor(v)   { return v >= 150000 ? '#d93025' : v >= 80000 ? '#e37400' : '#4285f4'; }
+function popLabel(v)   { return v >= 150000 ? 'High' : v >= 80000 ? 'Medium' : 'Low'; }
+function popBadge(v)   { return v >= 150000 ? 'badge-pop-high' : v >= 80000 ? 'badge-pop-med' : 'badge-pop-low'; }
+
+const TILES = {
+  default:   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+};
+const registry = {};
+
+function buildMap(id, addMarkers) {
+  const map = L.map(id, { center: [22.36, 114.11], zoom: 11, zoomControl: true });
+  const defLayer = L.tileLayer(TILES.default, { attribution: '© OpenStreetMap' }).addTo(map);
+  const satLayer = L.tileLayer(TILES.satellite, { attribution: '© Esri' });
+  registry[id] = { map, layers: { default: defLayer, satellite: satLayer }, active: 'default' };
+  addMarkers(map);
+  setTimeout(() => map.invalidateSize(), 300);
+}
+
+// Heat Stress Map
+buildMap('heatMap', (map) => {
+  districts.forEach(d => {
+    const r = 8 + d.stress * 26;
+    const c = heatColor(d.stress);
+    const m = L.circleMarker([d.lat, d.lng], {
+      radius: r, fillColor: c, fillOpacity: 0.5, color: c, weight: 2, opacity: 0.85
+    }).addTo(map);
+    m.bindPopup(`<div class="popup-card">
+      <h3>${d.zh} ${d.name}</h3>
+      <div class="stat-row"><span>Heat Stress</span><span class="val">${(d.stress*100).toFixed(0)}%</span></div>
+      <div class="stat-row"><span>Intensity</span><span class="val">${d.intensity}°C</span></div>
+      <div class="stat-row"><span>Delta</span><span class="val">${d.delta > 0 ? '+' : ''}${d.delta.toFixed(2)}</span></div>
+      <div class="stat-row"><span>Population</span><span class="val">${d.pop.toLocaleString()}</span></div>
+      <span class="badge ${heatBadge(d.stress)}">${heatLabel(d.stress)} Stress</span>
+    </div>`);
+    m.on('mouseover', function() { this.setStyle({ fillOpacity: 0.85, weight: 3 }); this.bringToFront(); });
+    m.on('mouseout', function() { this.setStyle({ fillOpacity: 0.5, weight: 2 }); });
+  });
+});
+
+// Population Map
+buildMap('popMap', (map) => {
+  const maxPop = Math.max(...districts.map(d => d.hiRisk));
+  districts.forEach(d => {
+    const r = 6 + (d.hiRisk / maxPop) * 28;
+    const c = popColor(d.hiRisk);
+    const m = L.circleMarker([d.lat, d.lng], {
+      radius: r, fillColor: c, fillOpacity: 0.45, color: c, weight: 2, opacity: 0.85
+    }).addTo(map);
+    m.bindPopup(`<div class="popup-card">
+      <h3>${d.zh} ${d.name}</h3>
+      <div class="stat-row"><span>High-Risk Pop</span><span class="val">${d.hiRisk.toLocaleString()}</span></div>
+      <div class="stat-row"><span>Total Pop</span><span class="val">${d.pop.toLocaleString()}</span></div>
+      <div class="stat-row"><span>Heat Stress</span><span class="val">${(d.stress*100).toFixed(0)}%</span></div>
+      <span class="badge ${popBadge(d.hiRisk)}">${popLabel(d.hiRisk)} Risk Pop</span>
+    </div>`);
+    m.on('mouseover', function() { this.setStyle({ fillOpacity: 0.8, weight: 3 }); this.bringToFront(); });
+    m.on('mouseout', function() { this.setStyle({ fillOpacity: 0.45, weight: 2 }); });
+  });
+});
+
+function switchTile(mapId, type, btn) {
+  const e = registry[mapId];
+  if (!e || e.active === type) return;
+  e.map.removeLayer(e.layers[e.active]);
+  e.layers[type].addTo(e.map);
+  e.active = type;
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// NAV ACTIVE STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const navLinks = document.querySelectorAll('.nav-links a');
+const sections = document.querySelectorAll('section[id]');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 100) current = s.getAttribute('id');
+  });
+  navLinks.forEach(a => {
+    a.classList.remove('active');
+    if (a.getAttribute('href') === '#' + current) a.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
